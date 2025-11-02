@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind Configuration for custom colors and font
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#1e3a8a', // Deep Indigo
+                        'accent-teal': '#14b8a6', // Vibrant Teal
+                        'accent-hover': '#0d9488', 
+                    },
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+            }
+        }
+    </script>
+    <style>
+        /* Ensures the background covers the full viewport for centering */
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans p-4">
+
+    <!-- Checkout Card Container -->
+    <div class="w-full max-w-lg bg-white shadow-2xl rounded-xl p-8 md:p-10 border-t-4 border-primary-dark transition-shadow duration-300 hover:shadow-3xl">
+        
+        <h1 class="text-3xl md:text-4xl font-extrabold text-primary-dark mb-6 text-center">
+            Shipping & Order Confirmation
+        </h1>
+
+        <!-- Address Form -->
+        <div id="addressForm" class="space-y-6">
+            <label for="addressInput" class="block text-lg font-medium text-gray-700">
+                Enter Shipping Address
+            </label>
+            <textarea 
+                id="addressInput" 
+                placeholder="Street address, City, Zip/Postal Code, Country..."
+                rows="4"
+                class="w-full p-4 border-2 border-gray-300 rounded-lg focus:border-accent-teal focus:ring-accent-teal focus:ring-1 transition duration-200 resize-none placeholder-gray-400"
+            ></textarea>
+            
+            <button 
+                onclick="submitAddress()" 
+                class="w-full py-3 text-lg font-bold text-white bg-accent-teal rounded-lg shadow-md hover:bg-accent-hover transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-accent-teal focus:ring-opacity-50"
+            >
+                Confirm & Place Order
+            </button>
+            
+            <div id="checkoutMessage" class="mt-4 p-2 rounded text-center text-sm font-medium"></div>
+
+            <p class="text-sm text-center text-gray-500 mt-4">
+                By clicking "Confirm & Place Order", you agree to our Terms of Service.
+            </p>
+        </div>
+    </div>
+
+    <!-- Integrated JavaScript Logic -->
+    <script>
+        const baseUrl = "http://localhost:3000/api";
+
+        function displayMessage(text, type) {
+            const messageElement = document.getElementById('checkoutMessage');
+            if (type === 'success') {
+                messageElement.className = 'mt-4 p-3 bg-green-100 text-green-700 rounded-lg text-center text-sm font-medium border border-green-300';
+            } else if (type === 'error') {
+                messageElement.className = 'mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-center text-sm font-medium border border-red-300';
+            } else {
+                messageElement.className = 'mt-4 p-3 bg-gray-100 text-gray-700 rounded-lg text-center text-sm font-medium border border-gray-300';
+            }
+            messageElement.textContent = text;
+        }
+
+
+        function submitAddress() {
+            const username = localStorage.getItem("username");
+            const address = document.getElementById("addressInput").value.trim();
+
+            if (!username) {
+                displayMessage("Please log in to proceed with the order.", 'error');
+                return;
+            }
+            if (address === "") {
+                displayMessage("Please enter your shipping address.", 'error');
+                return;
+            }
+
+            displayMessage("Saving address...", 'info');
+
+            // 1. Save address
+            fetch(`${baseUrl}/address`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, address }),
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to save address.");
+                return res.json();
+            })
+            .then(data => {
+                console.log("Address saved:", data);
+                displayMessage("Address saved! Preparing order...", 'info');
+
+                // 2. Retrieve cart from cookies (Your provided complex logic)
+                const cookie = document.cookie;
+                // NOTE: This cookie parsing logic is specific to your app's implementation
+                const parts = cookie.split("; ").find(row => row.startsWith("orderId"));
+                
+                if (!parts) {
+                    displayMessage("No items found in cart (cookie missing).", 'error');
+                    return;
+                }
+
+                const [orderIdPart, counterPart] = cookie.split(',');
+                const orderId = orderIdPart.split('=')[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+                const counter = Number(counterPart.split('=')[1]);
+                
+                // Grouping logic (as provided)
+                const cartItems = [];
+                for (let i = 0; i < orderId.length; i++) {
+                    let itemCounter = 1;
+                    for (let j = i + 1; j < orderId.length; j++) {
+                        if (orderId[j] === orderId[i]) {
+                            itemCounter += 1;
+                        }
+                    }
+                    cartItems.push({ id: orderId[i], quantity: itemCounter });
+                    i += itemCounter - 1; // Skip already counted items
+                }
+
+
+                // 3. Submit order
+                displayMessage("Submitting order...", 'info');
+                return fetch(`${baseUrl}/order`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        username,
+                        cart: cartItems,
+                        total: localStorage.getItem("totalAmount") || 0,
+                    }),
+                });
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to place order.");
+                return res.json();
+            })
+            .then(data => {
+                displayMessage("Order placed successfully! Redirecting...", 'success');
+                // Delay redirect slightly for the user to see the success message
+                setTimeout(() => {
+                    window.location.href = "orderPlaced.html";
+                }, 1500);
+            })
+            .catch(err => {
+                const errorMessage = err.message.includes("Failed to place order") 
+                                   ? "Order placement failed. Please try again." 
+                                   : "A critical error occurred during checkout.";
+                displayMessage(errorMessage, 'error');
+                console.error("Checkout error:", err);
+            });
+        }
+
+
+        function submitAddress() {
+  const username = localStorage.getItem("username");
+  const address = document.getElementById("addressInput").value;
+
+  fetch("http://localhost:3000/api/address", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, address }),
+  })
+    .then(() => {
+      const cookie = document.cookie;
+      const orderId = cookie.split(",")[0].split("=")[1].split(" ");
+      const counter = Number(cookie.split(",")[1].split("=")[1]);
+
+      const cartItems = [];
+      for (let i = 0; i < counter; i++) {
+        let itemCounter = 1;
+        for (let j = i + 1; j < counter; j++) {
+          if (Number(orderId[j]) === Number(orderId[i])) {
+            itemCounter += 1;
+          }
+        }
+        cartItems.push({ id: orderId[i], quantity: itemCounter });
+        i += itemCounter - 1;
+      }
+
+      fetch("http://localhost:3000/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          cart: cartItems,
+          total: localStorage.getItem("totalAmount"),
+        }),
+      })
+        .then(res => res.json())
+        .then(() => {
+          alert("Order placed successfully!");
+          window.location.href = "orderPlaced.html";
+        });
+    })
+    .catch(err => console.error("Checkout error:", err));
+}
+
+    </script>
+</body>
+</html>

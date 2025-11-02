@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind Configuration for custom colors and font
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'background-dark': '#0f172a', // Slate/Dark Blue
+                        'accent-gold': '#f59e0b',    // Soft Gold/Orange
+                        'accent-hover': '#d97706',
+                    },
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+            }
+        }
+    </script>
+    <style>
+        /* Ensures the background covers the full viewport for centering */
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-background-dark font-sans text-gray-100">
+
+    <!-- Account Card Container -->
+    <div class="w-full max-w-4xl bg-gray-800 shadow-2xl rounded-xl overflow-hidden">
+        
+        <header class="p-6 bg-gray-700 rounded-t-xl">
+            <h1 class="text-3xl font-bold text-center text-white">
+                Secure Account Access
+            </h1>
+        </header>
+
+        <!-- Form Grid (Side-by-side on desktop, stacked on mobile) -->
+        <div class="grid md:grid-cols-2 gap-8 p-8 md:p-12">
+            
+            <!-- Register Form -->
+            <div id="register" class="bg-gray-700 p-6 rounded-lg shadow-lg border-l-4 border-accent-gold transition duration-300 hover:shadow-xl space-y-4">
+                <h2 class="text-2xl font-semibold text-white mb-4">Create Account</h2>
+                
+                <input type="text" id="regUsername" placeholder="New Username" 
+                    class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold placeholder-gray-400 transition duration-200" />
+                
+                <input type="password" id="regPassword" placeholder="New Password" 
+                    class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold placeholder-gray-400 transition duration-200" />
+                
+                <button 
+                    onclick="registerUser()"
+                    class="w-full py-3 font-bold text-gray-900 bg-accent-gold rounded-lg shadow-md hover:bg-accent-hover transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-accent-gold focus:ring-opacity-50"
+                >
+                    Register
+                </button>
+                 <div id="regMessage" class="mt-4 p-2 rounded text-center text-sm font-medium"></div>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login" class="bg-gray-700 p-6 rounded-lg shadow-lg border-l-4 border-gray-500 transition duration-300 hover:shadow-xl space-y-4">
+                <h2 class="text-2xl font-semibold text-white mb-4">Sign In</h2>
+                
+                <input type="text" id="loginUsername" placeholder="Existing Username" 
+                    class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold placeholder-gray-400 transition duration-200" />
+                
+                <input type="password" id="loginPassword" placeholder="Password" 
+                    class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:border-accent-gold focus:ring-1 focus:ring-accent-gold placeholder-gray-400 transition duration-200" />
+                
+                <button 
+                    onclick="loginUser()"
+                    class="w-full py-3 font-bold text-gray-900 bg-accent-gold rounded-lg shadow-md hover:bg-accent-hover transition duration-300 transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-accent-gold focus:ring-opacity-50"
+                >
+                    Login
+                </button>
+                <div id="loginMessage" class="mt-4 p-2 rounded text-center text-sm font-medium"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Integrated JavaScript Logic -->
+    <script>
+        const baseUrl = "http://localhost:3000/api";
+
+        function displayMessage(id, text, type) {
+            const messageElement = document.getElementById(id);
+            if (type === 'success') {
+                messageElement.className = 'mt-4 p-3 bg-green-700 text-white rounded text-center text-sm font-medium';
+            } else if (type === 'error') {
+                messageElement.className = 'mt-4 p-3 bg-red-700 text-white rounded text-center text-sm font-medium';
+            } else {
+                messageElement.className = 'mt-4 p-3 bg-gray-600 text-gray-300 rounded text-center text-sm font-medium';
+            }
+            messageElement.textContent = text;
+        }
+
+
+        function registerUser() {
+          const username = document.getElementById("regUsername").value;
+          const password = document.getElementById("regPassword").value;
+          displayMessage('regMessage', 'Registering...', 'info');
+          fetch(`${baseUrl}/login/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          })
+    .then(res => res.json())
+    .then(data => alert(data.message))
+    .catch(err => {
+      displayMessage('regMessage', 'Network error or server unreachable.', 'error');
+      console.error("Registration error:", err);
+    });
+
+}
+
+
+
+
+
+
+
+
+function loginUser() {
+    const username = document.getElementById("loginUsername").value;
+    const password = document.getElementById("loginPassword").value;
+    displayMessage('loginMessage', 'Logging in...', 'info');
+
+    fetch(`${baseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.token) {
+            // Excellent: Storing both username and the auth token
+            localStorage.setItem("username", username);
+            localStorage.setItem("authToken", data.token); 
+            
+            displayMessage('loginMessage', 'Login successful! Redirecting...', 'success');
+            
+            setTimeout(() => {
+                window.location.href = "cart.html";
+            }, 1000);
+
+        } else {
+            displayMessage('loginMessage', data.message || 'Login failed. Check credentials.', 'error');
+        }
+    })
+    .catch(err => {
+        displayMessage('loginMessage', 'Network error or server unreachable.', 'error');
+        console.error("Login error:", err);
+    });
+}
+
+
+    </script>
+</body>
+</html>
