@@ -115,32 +115,72 @@
                 console.log("Address saved:", data);
                 displayMessage("Address saved! Preparing order...", 'info');
 
-                // 2. Retrieve cart from cookies (Your provided complex logic)
-                const cookie = document.cookie;
-                // NOTE: This cookie parsing logic is specific to your app's implementation
-                const parts = cookie.split("; ").find(row => row.startsWith("orderId"));
+                // // 2. Retrieve cart from cookies (Your provided complex logic)
+                // const cookie = document.cookie;
+                // // NOTE: This cookie parsing logic is specific to your app's implementation
+                // const parts = cookie.split("; ").find(row => row.startsWith("orderId"));
                 
-                if (!parts) {
-                    displayMessage("No items found in cart (cookie missing).", 'error');
-                    return;
-                }
+                // if (!parts) {
+                //     displayMessage("No items found in cart (cookie missing).", 'error');
+                //     return;
+                // }
 
-                const [orderIdPart, counterPart] = cookie.split(',');
-                const orderId = orderIdPart.split('=')[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
-                const counter = Number(counterPart.split('=')[1]);
+                // **FIXED: READ CART FROM LOCAL STORAGE**
+const rawCartItems = localStorage.getItem("dee_web_cart_items");
+let cartItemsArray = [];
+
+if (rawCartItems) {
+    try {
+        // The array should already be clean IDs: ["1", "3", "3", "5"]
+        cartItemsArray = JSON.parse(rawCartItems);
+    } catch (e) {
+        console.error("Failed to parse cart items from Local Storage:", e);
+    }
+}
+
+if (cartItemsArray.length === 0) {
+    displayMessage("No items found in cart (Local Storage is empty).", 'error');
+    return;
+}
+
+// **NEW: Prepare for grouping**
+// Your grouping logic needs a list of IDs. Since cartItemsArray is that list,
+// we'll run your grouping logic directly on it.
+
+const cartItems = [];
+const orderId = cartItemsArray; // Use the parsed array directly
+
+for (let i = 0; i < orderId.length; i++) {
+    let itemCounter = 1;
+    for (let j = i + 1; j < orderId.length; j++) {
+        // Use == since IDs might be strings
+        if (orderId[j] == orderId[i]) { 
+            itemCounter += 1;
+        }
+    }
+    cartItems.push({ id: orderId[i], quantity: itemCounter });
+    i += itemCounter - 1; // Skip already counted items
+}
+
+// ... continue to step 3 (Submit order) ...
                 
-                // Grouping logic (as provided)
-                const cartItems = [];
-                for (let i = 0; i < orderId.length; i++) {
-                    let itemCounter = 1;
-                    for (let j = i + 1; j < orderId.length; j++) {
-                        if (orderId[j] === orderId[i]) {
-                            itemCounter += 1;
-                        }
-                    }
-                    cartItems.push({ id: orderId[i], quantity: itemCounter });
-                    i += itemCounter - 1; // Skip already counted items
-                }
+
+                // const [orderIdPart, counterPart] = cookie.split(',');
+                // const orderId = orderIdPart.split('=')[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+                // const counter = Number(counterPart.split('=')[1]);
+                
+                // // Grouping logic (as provided)
+                // const cartItems = [];
+                // for (let i = 0; i < orderId.length; i++) {
+                //     let itemCounter = 1;
+                //     for (let j = i + 1; j < orderId.length; j++) {
+                //         if (orderId[j] === orderId[i]) {
+                //             itemCounter += 1;
+                //         }
+                //     }
+                //     cartItems.push({ id: orderId[i], quantity: itemCounter });
+                //     i += itemCounter - 1; // Skip already counted items
+                // }
 
 
                 // 3. Submit order
@@ -180,27 +220,91 @@
   const username = localStorage.getItem("username");
   const address = document.getElementById("addressInput").value;
 
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
   fetch("http://localhost:3000/api/address", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, address }),
   })
-    .then(() => {
-      const cookie = document.cookie;
-      const orderId = cookie.split(",")[0].split("=")[1].split(" ");
-      const counter = Number(cookie.split(",")[1].split("=")[1]);
+  .then(data => {
+    console.log("Address saved:", data);
+    displayMessage("Address saved! Preparing order...", 'info');
 
-      const cartItems = [];
-      for (let i = 0; i < counter; i++) {
+    // **CLEANED UP CART RETRIEVAL**
+    const cookieValue = getCookie("orderId"); // Assuming the cart ID list is in a cookie named 'orderId'
+    
+    if (!cookieValue) {
+        displayMessage("No items found in cart (cookie missing).", 'error');
+        return; 
+    }
+
+    // Now safely split the value (assuming it's a space-separated list of IDs)
+    const orderId = cookieValue.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+    
+    if (orderId.length === 0) {
+        displayMessage("Cart cookie found, but no product IDs were parsed.", 'error');
+        return; 
+    }
+
+    // Use the parsed orderId list for grouping (your grouping logic looks mostly correct)
+    const cartItems = [];
+    for (let i = 0; i < orderId.length; i++) {
         let itemCounter = 1;
-        for (let j = i + 1; j < counter; j++) {
-          if (Number(orderId[j]) === Number(orderId[i])) {
-            itemCounter += 1;
-          }
+        for (let j = i + 1; j < orderId.length; j++) {
+            // Note: Use simple comparison since IDs are now numbers
+            if (orderId[j] === orderId[i]) { 
+                itemCounter += 1;
+            }
         }
         cartItems.push({ id: orderId[i], quantity: itemCounter });
-        i += itemCounter - 1;
-      }
+        i += itemCounter - 1; // Skip already counted items
+    }
+
+
+
+
+
+
+
+    // .then(() => {
+    //   const cookie = document.cookie;
+    //   const orderId = cookie.split(",")[0].split("=")[1].split(" ");
+    //   const counter = Number(cookie.split(",")[1].split("=")[1]);
+
+    //   const cartItems = [];
+    //   for (let i = 0; i < counter; i++) {
+    //     let itemCounter = 1;
+    //     for (let j = i + 1; j < counter; j++) {
+    //       if (Number(orderId[j]) === Number(orderId[i])) {
+    //         itemCounter += 1;
+    //       }
+    //     }
+    //     cartItems.push({ id: orderId[i], quantity: itemCounter });
+    //     i += itemCounter - 1;
+    //   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       fetch("http://localhost:3000/api/order", {
         method: "POST",
